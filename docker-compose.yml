@@ -1,0 +1,13 @@
+services:
+
+  postgres:
+
+    image: pgvector/pgvector:pg16
+
+    environment:
+      POSTGRES_DB: ragdb
+      POSTGRES_USER: userapp
+      POSTGRES_PASSWORD: password
+
+    ports:
+      - "5432:5432"
