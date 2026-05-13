@@ -12,10 +12,6 @@ import jakarta.inject.Inject;
 import org.acme.controller.DocumentResource;
 import org.acme.service.constants.RagConstants;
 import org.jboss.logging.Logger;
-
-import static dev.langchain4j.store.embedding.filter.MetadataFilterBuilder.metadataKey;
-
-
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;

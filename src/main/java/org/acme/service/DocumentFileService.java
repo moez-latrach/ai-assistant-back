@@ -12,6 +12,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.acme.model.dto.DocumentResponse;
 import org.acme.model.dto.UploadResponse;
 import org.acme.model.entity.DocumentFile;
 import org.acme.repository.DocumentRepository;
@@ -64,24 +65,15 @@ public class DocumentFileService {
 
         /* EXTRACT TEXT */
         try (InputStream inputStream = Files.newInputStream(file.uploadedFile())) {
-
             String text = extract(file.fileName(), inputStream);
-
             ingest(text, document.getId(), document.getFilename());
-
         }
-
         LOG.info("Ingestion terminée");
 
         return new UploadResponse(
-
                 document.getId(),
-
                 document.getFilename()
-
         );
-
-
     }
 
     /* EXTRACT */
@@ -94,24 +86,26 @@ public class DocumentFileService {
     private void ingest(String text, UUID documentId, String filename) {
 
         Document parsedDocument = Document.from(text);
-
         List<TextSegment> segments = splitter.split(parsedDocument);
-
         LOG.infof("Nombre de chunks : %s ", segments.size());
 
         for (TextSegment segment : segments) {
 
             Metadata metadata = new Metadata();
-
             metadata.put(RagConstants.DOCUMENT_ID, documentId.toString());
-
             metadata.put(RagConstants.FILE_NAME, filename);
-
             TextSegment enrichedSegment = TextSegment.from(segment.text(), metadata);
-
             embeddingStore.add(embeddingModel.embed(enrichedSegment).content(), enrichedSegment);
 
         }
+    }
+
+    public List<DocumentResponse> findAll() {
+        return documentRepository.listAll().stream()
+
+                .map(document ->
+                        new DocumentResponse(document.getId(), document.getFilename()))
+                .toList();
     }
 
 }
