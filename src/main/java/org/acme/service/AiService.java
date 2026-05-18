@@ -3,6 +3,7 @@ package org.acme.service;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
@@ -47,15 +48,21 @@ public class AiService {
 
         /* VECTOR SEARCH */
         EmbeddingSearchResult<TextSegment> result = embeddingStore.search(request);
-        LOG.infof("MATCHES SIZE : %d", result.matches().size()
-        );
+        LOG.infof("MATCHES SIZE : %d", result.matches().size());
+        List<EmbeddingMatch<TextSegment>> matches =
 
-        if (result.matches().isEmpty()) {
+                result.matches().stream()
+
+                      //  .filter(match -> match.score() > 0.85)
+
+                        .toList();
+
+        if (matches.isEmpty()) {
             LOG.info("Aucun contexte trouvé");
             return RagConstants.NO_INFORMATION_FOUND;
         }
 
-        String context = result.matches().stream()
+        String context = matches.stream()
                 .map(match -> {
                     LOG.infof("SCORE : %f " , match.score() );
                     LOG.infof( "TEXT : %s " , match.embedded().text());
@@ -63,8 +70,8 @@ public class AiService {
                 })
                 .collect(Collectors.joining("\n\n"));
         LOG.infof("Context récupéré : %s", context);
-        context = result.matches().getFirst().embedded().text();
-        LOG.infof("CONTEXT : %s ", context);
+       // context = result.matches().getFirst().embedded().text();
+      //  LOG.infof("CONTEXT : %s ", context);
 
         String prompt = RagConstants.PROMPT_TEMPLATE.formatted(context, question);
         return chatModel.generate(prompt);

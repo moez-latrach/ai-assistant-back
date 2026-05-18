@@ -46,7 +46,7 @@ public class DocumentFileService {
 
     /* SPLITTER */
 
-    private final DocumentSplitter splitter = DocumentSplitters.recursive(500, 100);
+    private final DocumentSplitter splitter = DocumentSplitters.recursive(250, 50);
 
     /* UPLOAD */
 
@@ -95,6 +95,7 @@ public class DocumentFileService {
             metadata.put(RagConstants.DOCUMENT_ID, documentId.toString());
             metadata.put(RagConstants.FILE_NAME, filename);
             TextSegment enrichedSegment = TextSegment.from(segment.text(), metadata);
+            LOG.infof("Segment : %s ", segment.text());
             embeddingStore.add(embeddingModel.embed(enrichedSegment).content(), enrichedSegment);
 
         }

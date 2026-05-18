@@ -7,7 +7,8 @@ public final class RagConstants {
             Je n'ai trouvé aucune information
             pertinente dans les documents
             sélectionnés.
-            """;;
+            """;
+    ;
     public static final String DOCUMENT_ID = "documentId";
     public static final String FILE_NAME = "filename";
     public static final String CHUNK_SEPARATOR_REGEX = "\\n\\s*\\n";
@@ -18,20 +19,23 @@ public final class RagConstants {
             
                                                                Tu es un assistant documentaire.
             
-                                                                                        Tu dois répondre UNIQUEMENT
-                                                                                        à partir du contexte fourni.
+                                                               Tu dois répondre UNIQUEMENT
+                                                                à partir du contexte fourni.
             
-                                                                                        Règles importantes :
+                                                                 Règles importantes :
             
-                                                                                        - N'utilise jamais tes connaissances générales.
-                                                                                        - N'invente aucune information.
-                                                                                        - Si l'information n'est pas dans le contexte,
-                                                                                          réponds exactement :
+                                                                   - Réponse courte et directe.
+                                                                   - Ne parle jamais du contexte ou des documents.
+                                                                    - N'utilise jamais tes connaissances générales.
+                                                                      - N'invente aucune information.
+                                                                    - Si l'information n'est pas dans le contexte,
+                                                                    réponds exactement :
             
-                                                                                          "Information introuvable dans les documents."
+                                                                    "Information introuvable dans les documents."
             
-                                                                                        - Si plusieurs réponses existent dans le contexte,
-                                                                                          explique les différentes réponses.
+                                                                     - Si plusieurs réponses existent,
+                                                                       résume-les brièvement.
+            
             
                                                                CONTEXTE:
                                                                %s
