@@ -46,7 +46,7 @@ public class DocumentFileService {
 
     /* SPLITTER */
 
-    private final DocumentSplitter splitter = DocumentSplitters.recursive(250, 50);
+    private final DocumentSplitter splitter = DocumentSplitters.recursive(500, 100);
 
     /* UPLOAD */
 
@@ -89,13 +89,23 @@ public class DocumentFileService {
         List<TextSegment> segments = splitter.split(parsedDocument);
         LOG.infof("Nombre de chunks : %s ", segments.size());
 
-        for (TextSegment segment : segments) {
+        for (int i = 0; i < segments.size(); i++) {
 
+            TextSegment segment = segments.get(i);
             Metadata metadata = new Metadata();
             metadata.put(RagConstants.DOCUMENT_ID, documentId.toString());
             metadata.put(RagConstants.FILE_NAME, filename);
+            metadata.put(RagConstants.CHUNK_INDEX, i);
             TextSegment enrichedSegment = TextSegment.from(segment.text(), metadata);
-            LOG.infof("Segment : %s ", segment.text());
+            LOG.infof("""
+                    -----------------------------------------
+                    ChunkIndex : %d
+                    Document   : %s
+                    Characters : %d
+                    -----------------------------------------
+                    %s
+                    -----------------------------------------
+                    """, i, filename, segment.text().length(), segment.text());
             embeddingStore.add(embeddingModel.embed(enrichedSegment).content(), enrichedSegment);
 
         }

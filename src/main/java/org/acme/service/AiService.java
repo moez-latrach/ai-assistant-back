@@ -33,30 +33,60 @@ public class AiService {
 
     public String ask(String question, List<UUID> documentIds) {
 
-        LOG.infof("Question reçue : %s", question);
-
         /* QUESTION EMBEDDING */
         var embedding = embeddingModel.embed(question).content();
 
         /* SEARCH REQUEST */
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
                 .queryEmbedding(embedding)
-                .maxResults(3)
+                .maxResults(10)
                 .filter(new IsIn(RagConstants.DOCUMENT_ID, documentIds.stream()
                         .map(UUID::toString)
                         .toList())).build();
 
         /* VECTOR SEARCH */
+        LOG.infof("""
+                =========================================
+                QUESTION :
+                %s
+
+                DOCUMENT FILTER :
+                %s
+
+                MAX RESULTS :
+                %d
+
+                =========================================
+                """, question,
+                documentIds.isEmpty()
+                        ? "ALL"
+                        : documentIds.stream().map(UUID::toString).collect(Collectors.joining(", ")),
+                20);
         EmbeddingSearchResult<TextSegment> result = embeddingStore.search(request);
-        LOG.infof("MATCHES SIZE : %d", result.matches().size());
+        for (int i = 0; i < result.matches().size(); i++) {
+            EmbeddingMatch<TextSegment> match = result.matches().get(i);
+            TextSegment segment = match.embedded();
+            LOG.infof("""
+                    -----------------------------------------
+                    Rank        : %d
+                    Score       : %.4f
+                    Document    : %s
+                    DocumentId  : %s
+                    ChunkIndex  : %s
+                    -----------------------------------------
+                    %s
+                    -----------------------------------------
+                    """, i + 1,
+                    match.score(),
+                    segment.metadata().getString(RagConstants.FILE_NAME),
+                    segment.metadata().getString(RagConstants.DOCUMENT_ID),
+                    segment.metadata().getInteger(RagConstants.CHUNK_INDEX),
+                    segment.text());
+        }
         List<EmbeddingMatch<TextSegment>> matches =
-
                 result.matches().stream()
-
                       //  .filter(match -> match.score() > 0.85)
-
                         .toList();
-
         if (matches.isEmpty()) {
             LOG.info("Aucun contexte trouvé");
             return RagConstants.NO_INFORMATION_FOUND;
@@ -64,16 +94,30 @@ public class AiService {
 
         String context = matches.stream()
                 .map(match -> {
-                    LOG.infof("SCORE : %f " , match.score() );
-                    LOG.infof( "TEXT : %s " , match.embedded().text());
-                    return  match.embedded().text();
+                    return match.embedded().text();
                 })
                 .collect(Collectors.joining("\n\n"));
-        LOG.infof("Context récupéré : %s", context);
+        LOG.infof("""
+                =========================================
+                CONTEXT SENT TO LLM
+
+                %s
+
+                =========================================
+                """, context);
        // context = result.matches().getFirst().embedded().text();
       //  LOG.infof("CONTEXT : %s ", context);
 
         String prompt = RagConstants.PROMPT_TEMPLATE.formatted(context, question);
-        return chatModel.generate(prompt);
+        String response = chatModel.generate(prompt);
+        LOG.infof("""
+                =========================================
+                LLM RESPONSE
+
+                %s
+
+                =========================================
+                """, response);
+        return response;
     }
 }
