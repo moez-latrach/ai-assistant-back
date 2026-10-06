@@ -39,7 +39,7 @@ public class AiService {
         /* SEARCH REQUEST */
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
                 .queryEmbedding(embedding)
-                .maxResults(10)
+                .maxResults(RagConstants.SEARCH_MAX_RESULTS)
                 .filter(new IsIn(RagConstants.DOCUMENT_ID, documentIds.stream()
                         .map(UUID::toString)
                         .toList())).build();
@@ -53,7 +53,7 @@ public class AiService {
                 DOCUMENT FILTER :
                 %s
 
-                MAX RESULTS :
+                MAX RESULTS (Top K demandé) :
                 %d
 
                 =========================================
@@ -61,8 +61,11 @@ public class AiService {
                 documentIds.isEmpty()
                         ? "ALL"
                         : documentIds.stream().map(UUID::toString).collect(Collectors.joining(", ")),
-                20);
+                RagConstants.SEARCH_MAX_RESULTS);
         EmbeddingSearchResult<TextSegment> result = embeddingStore.search(request);
+        LOG.infof("MATCHES RETURNED : %d / %d demandés",
+                result.matches().size(),
+                RagConstants.SEARCH_MAX_RESULTS);
         for (int i = 0; i < result.matches().size(); i++) {
             EmbeddingMatch<TextSegment> match = result.matches().get(i);
             TextSegment segment = match.embedded();

@@ -2,7 +2,7 @@ package org.acme.service.constants;
 
 public final class RagConstants {
 
-    public static final int SEARCH_MAX_RESULTS = 1;
+    public static final int SEARCH_MAX_RESULTS = 10;
     public static final String NO_INFORMATION_FOUND = """
             Je n'ai trouvé aucune information
             pertinente dans les documents
