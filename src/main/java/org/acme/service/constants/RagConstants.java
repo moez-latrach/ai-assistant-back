@@ -8,12 +8,12 @@ public final class RagConstants {
             pertinente dans les documents
             sélectionnés.
             """;
-    ;
+    public static final String NO_DOCUMENT_SELECTED = "Sélectionnez au moins un document avant de poser une question.";
+
     public static final String DOCUMENT_ID = "documentId";
     public static final String FILE_NAME = "filename";
     public static final String CHUNK_INDEX = "chunkIndex";
     public static final String CONTEXT_CHUNK_SEPARATOR = "\n\n";
-    public static final String CHUNK_SEPARATOR_REGEX = "\\n\\s*\\n";
 
     public static final String PROMPT_TEMPLATE = """
             
@@ -47,8 +47,6 @@ public final class RagConstants {
                                                                %s
             
             """;
-
-    public static final String NO_DOCUMENT_SELECTED = "Sélectionnez au moins un document avant de poser une question.";
 
     private RagConstants() {
     }
