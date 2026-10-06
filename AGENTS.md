@@ -81,15 +81,17 @@ La détection d'extension est actuellement sensible à la casse. Un format sans 
 ### Question et Retrieval
 
 ```text
-Question
+Question + documentIds
+    ↓
+Garde : aucun document sélectionné ? → NO_DOCUMENT_SELECTED (fin)
     ↓
 Embedding nomic-embed-text
     ↓
 Vector Search filtrée par documentId
     ↓
-Top K chunks (maxResults = 10 dans le code courant)
+Top K chunks (RagConstants.SEARCH_MAX_RESULTS = 10)
     ↓
-Concaténation, séparée par deux retours à la ligne
+Concaténation (RagConstants.CONTEXT_CHUNK_SEPARATOR)
     ↓
 Contexte injecté dans PROMPT_TEMPLATE
     ↓
@@ -98,9 +100,11 @@ LLM Mistral
 Answer
 ```
 
-`AiService.ask()` construit toujours un filtre `IsIn(documentId, documentIds)`. Ne pas supposer qu'une liste vide recherche réellement dans tous les documents sans le vérifier : le log affiche actuellement `ALL`, mais le filtre reste construit avec la liste vide.
+`AiService.ask()` commence par une garde : si `documentIds` est `null` ou vide, il renvoie `RagConstants.NO_DOCUMENT_SELECTED` sans calculer d'embedding, sans recherche et sans appel au LLM (log `WARN`). C'est un choix fonctionnel : on refuse plutôt que de chercher dans tous les documents, en prévision de futurs droits d'accès par document. Le message est renvoyé avec un statut 200 ; le front l'affiche tel quel. Sinon, un filtre `IsIn(documentId, documentIds)` est construit (LangChain4j refuse une liste vide dans `IsIn`, d'où la garde).
 
-Tous les matches renvoyés sont conservés, dans leur ordre de ranking. Aucun seuil de score actif et aucun reranker ne sont appliqués. La ligne de filtre à `0.85` visible dans le code est commentée. Si aucun match n'est retourné, le service renvoie `NO_INFORMATION_FOUND` sans appeler le LLM.
+Tous les matches renvoyés sont conservés, dans leur ordre de ranking. Aucun seuil de score et aucun reranker ne sont appliqués. Si aucun match n'est retourné, le service renvoie `NO_INFORMATION_FOUND` sans appeler le LLM.
+
+`PROMPT_TEMPLATE` prend trois paramètres, dans l'ordre : le message `NO_INFORMATION_FOUND`, le contexte, la question. Le LLM reçoit donc le même texte de repli que le backend : l'utilisateur voit une seule formulation quand l'information est absente (sous réserve que le modèle la recopie exactement).
 
 ## Classes principales
 
@@ -115,7 +119,8 @@ Tous les matches renvoyés sont conservés, dans leur ordre de ranking. Aucun se
 - `DocumentRepository` : `PanacheRepository<DocumentFile>`.
 - `DocumentFile` : entité de la table `documents`.
 - DTO records : `ChatRequest`, `ChatResponse`, `UploadResponse`, `DocumentResponse`.
-- `RagConstants` : clés de métadonnées, texte de repli et prompt. `SEARCH_MAX_RESULTS` et `CHUNK_SEPARATOR_REGEX` ne pilotent pas le flux courant.
+- `RagConstants` : tout ce qui influence le comportement du RAG ou ce que lit l'utilisateur/le LLM — Top K (`SEARCH_MAX_RESULTS`), messages utilisateur (`NO_INFORMATION_FOUND`, `NO_DOCUMENT_SELECTED`), clés de métadonnées, séparateur de contexte, `PROMPT_TEMPLATE`.
+- `LogMessages` : modèles des messages de log (ingestion et Retrieval). Uniquement destinés au développeur.
 
 ## État actuel et diagnostic du Retrieval
 
@@ -131,17 +136,15 @@ Problème observé : un chunk contenant la bonne information peut être présent
 
 Points connus à garder visibles :
 
-- `AiService` recherche actuellement avec `maxResults(10)`, tandis que le bloc de log annonce encore `20` : c'est une incohérence d'observabilité à corriger séparément et à tester ;
-- `RagConstants.SEARCH_MAX_RESULTS` vaut `1`, mais n'est pas utilisé par la requête ;
-- la documentation existante mentionne encore d'anciennes valeurs (`250/50` et Top 3) ;
-- aucun test automatisé n'est actuellement présent sous `src/test` malgré les dépendances Quarkus JUnit, REST Assured et Mockito ; `./mvnw test` valide donc surtout compilation et démarrage des phases Maven.
+- la documentation sous `documentation/` mentionne encore d'anciennes valeurs (`250/50` et Top 3) ;
+- les tests couvrent pour l'instant uniquement la garde « aucun document » et le cas « aucun match » ; le cas nominal (prompt envoyé au LLM) et l'ingestion ne sont pas encore testés.
 
 ## Observabilité à préserver
 
 Ne pas supprimer les logs de diagnostic qui permettent de relier ingestion et Retrieval. Ils doivent conserver au minimum :
 
 - à l'ingestion : `chunkIndex`, document, nombre de caractères et texte complet du chunk ;
-- à la recherche : question, filtre documentaire et Top K demandé ;
+- à la recherche : question, filtre documentaire, Top K demandé et nombre de matches réellement renvoyés (`MATCHES RETURNED : x / K demandés`) ;
 - pour chaque match : rang (à partir de 1), score, document, `documentId`, `chunkIndex` et texte complet ;
 - le contexte complet envoyé au LLM ;
 - la réponse complète du LLM.
@@ -168,7 +171,8 @@ Attention aux données sensibles : ces logs contiennent le texte intégral des d
 - Packages sous `org.acme`, composants métier `@ApplicationScoped` et injection CDI par `@Inject`.
 - Endpoints Jakarta REST regroupés dans `controller`, chemins dans `ApiPaths`.
 - DTO simples sous forme de records Java ; entités JPA et repositories Panache séparés.
-- Constantes RAG et clés de métadonnées centralisées dans `RagConstants`.
+- Constantes RAG et clés de métadonnées centralisées dans `RagConstants` ; messages de log dans `LogMessages`. Règle de tri : si le texte est lu par l'utilisateur ou le LLM → `RagConstants` ; s'il est lu par le développeur dans la console → `LogMessages`. Pas de chaîne de log en dur dans les services.
+- Une seule source de vérité par paramètre : jamais de valeur en dur dupliquée entre le code et les logs.
 - Nouveau format documentaire : implémenter `DocumentExtractor`, l'annoter comme bean CDI et définir précisément `supports()`.
 - Conserver le même modèle et la même dimension entre les embeddings ingérés et ceux des questions. Un changement de modèle/dimension nécessite une stratégie explicite de réindexation.
 - Ne jamais interpréter un score isolé comme une mesure absolue de vérité ; comparer les rangs et résultats sur un corpus évalué.
@@ -188,7 +192,7 @@ ollama pull mistral
 # Mode développement Quarkus
 ./mvnw compile quarkus:dev
 
-# Tests et compilation des tests
+# Tests (scénarios BDD Cucumber, sans Ollama ni PostgreSQL)
 ./mvnw test
 
 # Build JVM complet (tests d'intégration ignorés par défaut)
@@ -203,6 +207,22 @@ java -jar target/quarkus-app/quarkus-run.jar
 ```
 
 Pour une expérimentation Retrieval, noter le corpus, la question, les documents filtrés, les valeurs de chunking et de Top K, puis comparer les rangs/scores et le contexte exact. Ne conclure à un problème LLM qu'après avoir vérifié que l'information correcte est bien présente dans le contexte envoyé.
+
+## Tests (BDD)
+
+Les tests sont des scénarios Gherkin exécutables avec Cucumber (dépendances `cucumber-java` et `cucumber-junit-platform-engine`, scope `test`, compatibles JUnit 6 fourni par Quarkus).
+
+- Scénarios : `src/test/resources/features/*.feature` (ex. `chat.feature`).
+- Step definitions : `src/test/java/org/acme/service/ChatSteps.java`.
+- Runner : `src/test/java/org/acme/service/RunCucumberTest.java` (glue `org.acme.service`, plugin `pretty`).
+
+Principes :
+
+- `AiService` est testé sans Ollama ni PostgreSQL : `EmbeddingModel`, `EmbeddingStore` et `ChatLanguageModel` sont des mocks Mockito, injectés dans les champs `@Inject` package-private (les steps sont dans le même package).
+- Cucumber crée une nouvelle instance de `ChatSteps` par scénario : chaque scénario a ses propres mocks ; les données passent d'une étape à l'autre par les champs (`question`, `documentIds`, `answer`).
+- Scénarios rédigés en anglais, en vocabulaire métier (pas de noms de classes ni de mocks).
+- Un scénario décrit le comportement, pas le texte exact affiché : `Then the user is asked to select at least one document`, et c'est la step qui compare à la constante (`RagConstants.NO_DOCUMENT_SELECTED`).
+- Réutiliser les phrases existantes avant d'en créer de nouvelles ; une phrase nouvelle nécessite une méthode dans `ChatSteps`.
 
 ## Roadmap
 

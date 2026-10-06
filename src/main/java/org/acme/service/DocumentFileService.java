@@ -7,7 +7,6 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.data.document.Metadata;
-import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -16,6 +15,7 @@ import org.acme.model.dto.DocumentResponse;
 import org.acme.model.dto.UploadResponse;
 import org.acme.model.entity.DocumentFile;
 import org.acme.repository.DocumentRepository;
+import org.acme.service.constants.LogMessages;
 import org.acme.service.constants.RagConstants;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
@@ -68,7 +68,7 @@ public class DocumentFileService {
             String text = extract(file.fileName(), inputStream);
             ingest(text, document.getId(), document.getFilename());
         }
-        LOG.info("Ingestion terminée");
+        LOG.info(LogMessages.INGESTION_COMPLETED);
 
         return new UploadResponse(
                 document.getId(),
@@ -87,7 +87,7 @@ public class DocumentFileService {
 
         Document parsedDocument = Document.from(text);
         List<TextSegment> segments = splitter.split(parsedDocument);
-        LOG.infof("Nombre de chunks : %s ", segments.size());
+        LOG.infof(LogMessages.CHUNK_COUNT, segments.size());
 
         for (int i = 0; i < segments.size(); i++) {
 
@@ -97,15 +97,7 @@ public class DocumentFileService {
             metadata.put(RagConstants.FILE_NAME, filename);
             metadata.put(RagConstants.CHUNK_INDEX, i);
             TextSegment enrichedSegment = TextSegment.from(segment.text(), metadata);
-            LOG.infof("""
-                    -----------------------------------------
-                    ChunkIndex : %d
-                    Document   : %s
-                    Characters : %d
-                    -----------------------------------------
-                    %s
-                    -----------------------------------------
-                    """, i, filename, segment.text().length(), segment.text());
+            LOG.infof(LogMessages.CHUNK_DETAIL, i, filename, segment.text().length(), segment.text());
             embeddingStore.add(embeddingModel.embed(enrichedSegment).content(), enrichedSegment);
 
         }
