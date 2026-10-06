@@ -62,7 +62,7 @@ public class AiService {
 
         String context = matches.stream().map(match -> match.embedded().text()).collect(Collectors.joining(RagConstants.CONTEXT_CHUNK_SEPARATOR));
         LOG.infof(LogMessages.CONTEXT_SENT_TO_LLM, context);
-        String prompt = RagConstants.PROMPT_TEMPLATE.formatted(context, question);
+        String prompt = RagConstants.PROMPT_TEMPLATE.formatted(RagConstants.NO_INFORMATION_FOUND, context, question);
         String response = chatModel.generate(prompt);
         LOG.infof(LogMessages.LLM_RESPONSE, response);
         return response;
