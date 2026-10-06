@@ -12,6 +12,7 @@ public final class RagConstants {
     public static final String DOCUMENT_ID = "documentId";
     public static final String FILE_NAME = "filename";
     public static final String CHUNK_INDEX = "chunkIndex";
+    public static final String CONTEXT_CHUNK_SEPARATOR = "\n\n";
     public static final String CHUNK_SEPARATOR_REGEX = "\\n\\s*\\n";
 
     public static final String PROMPT_TEMPLATE = """
@@ -30,7 +31,7 @@ public final class RagConstants {
                                                                     - N'utilise jamais tes connaissances générales.
                                                                       - N'invente aucune information.
                                                                     - Si l'information n'est pas dans le contexte,
-                                                                    
+            
                                                                     réponds exactement :
             
                                                                     "Information introuvable dans les documents."
@@ -47,6 +48,9 @@ public final class RagConstants {
             
             """;
 
+    public static final String NO_DOCUMENT_SELECTED = "Sélectionnez au moins un document avant de poser une question.";
+
     private RagConstants() {
     }
+
 }
