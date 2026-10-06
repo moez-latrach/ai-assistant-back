@@ -10,7 +10,6 @@ import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.filter.comparison.IsIn;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.acme.controller.DocumentResource;
 import org.acme.service.constants.RagConstants;
 import org.jboss.logging.Logger;
 import java.util.List;
@@ -29,7 +28,7 @@ public class AiService {
     @Inject
     EmbeddingStore<TextSegment> embeddingStore;
 
-    private static final Logger LOG = Logger.getLogger(DocumentResource.class);
+    private static final Logger LOG = Logger.getLogger(AiService.class);
 
     public String ask(String question, List<UUID> documentIds) {
 
