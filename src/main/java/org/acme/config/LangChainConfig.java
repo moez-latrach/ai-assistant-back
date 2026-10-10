@@ -9,16 +9,43 @@ import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import javax.sql.DataSource;
+
+/**
+ * Fabrique les composants LangChain4j à partir de application.properties.
+ * Aucune valeur de connexion en dur : tout vient de la configuration (et donc du profil Quarkus actif).
+ */
 @ApplicationScoped
 public class LangChainConfig {
+
+    /** Datasource Quarkus (quarkus.datasource.*) : partagée par Hibernate (table documents) et pgvector (table embeddings). */
+    @Inject
+    DataSource dataSource;
+
+    @ConfigProperty(name = "rag.ollama.base-url")
+    String ollamaBaseUrl;
+
+    @ConfigProperty(name = "rag.ollama.embedding-model")
+    String embeddingModelName;
+
+    @ConfigProperty(name = "rag.ollama.chat-model")
+    String chatModelName;
+
+    @ConfigProperty(name = "rag.pgvector.table")
+    String pgvectorTable;
+
+    @ConfigProperty(name = "rag.pgvector.dimension")
+    int pgvectorDimension;
 
     @Produces
     public EmbeddingModel embeddingModel() {
 
         return OllamaEmbeddingModel.builder()
-                .baseUrl(LangChainConstants.OLLAMA_BASE_URL)
-                .modelName(LangChainConstants.EMBEDDING_MODEL)
+                .baseUrl(ollamaBaseUrl)
+                .modelName(embeddingModelName)
                 .logRequests(true)
                 .logResponses(true)
                 .build();
@@ -28,22 +55,18 @@ public class LangChainConfig {
     public ChatLanguageModel chatModel() {
 
         return OllamaChatModel.builder()
-                .baseUrl(LangChainConstants.OLLAMA_BASE_URL)
-                .modelName(LangChainConstants.CHAT_MODEL)
+                .baseUrl(ollamaBaseUrl)
+                .modelName(chatModelName)
                 .build();
     }
 
     @Produces
     public EmbeddingStore<TextSegment> embeddingStore() {
 
-        return PgVectorEmbeddingStore.builder()
-                .host(LangChainConstants.PGVECTOR_HOST)
-                .port(LangChainConstants.PGVECTOR_PORT)
-                .database(LangChainConstants.PGVECTOR_DATABASE)
-                .user(LangChainConstants.PGVECTOR_USER)
-                .password(LangChainConstants.PGVECTOR_PASSWORD)
-                .table(LangChainConstants.PGVECTOR_TABLE)
-                .dimension(LangChainConstants.PGVECTOR_DIMENSION)
+        return PgVectorEmbeddingStore.datasourceBuilder()
+                .datasource(dataSource)
+                .table(pgvectorTable)
+                .dimension(pgvectorDimension)
                 .createTable(true)
                 .build();
     }

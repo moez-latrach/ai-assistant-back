@@ -20,7 +20,16 @@ Le code courant est la source de vérité. La documentation sous `documentation/
 - Modèle d'embedding configuré sur 768 dimensions.
 - PDFBox 3.0.2 pour les PDF et Apache POI 5.4.0 pour les DOCX.
 
-Les paramètres Ollama et pgvector sont codés dans `LangChainConstants`. Les paramètres ORM/CORS sont dans `application.properties`. Les identifiants de développement PostgreSQL sont actuellement `userapp/password`, base `ragdb`. Ne pas les considérer comme une configuration de production.
+Toute la configuration est dans `application.properties` (plus aucune valeur de connexion en dur dans le code) :
+
+- `quarkus.datasource.*` : connexion PostgreSQL. **Une seule datasource**, partagée par Hibernate (table `documents`) et par pgvector (table `embeddings`) ;
+- `rag.ollama.base-url`, `rag.ollama.embedding-model`, `rag.ollama.chat-model` : modèles Ollama ;
+- `rag.pgvector.table`, `rag.pgvector.dimension` : stockage vectoriel (la dimension doit correspondre au modèle d'embedding) ;
+- CORS et génération du schéma Hibernate.
+
+Les identifiants de développement PostgreSQL sont actuellement `userapp/password`, base `ragdb`. Ne pas les considérer comme une configuration de production.
+
+Règle importante : ne jamais redonner à pgvector ses propres paramètres de connexion (`host`, `database`, `user`…). Les deux tables doivent toujours passer par la même datasource ; sinon, un changement de base (par exemple via un profil Quarkus) ne s'appliquerait qu'à une seule des deux tables, sans erreur visible.
 
 ## Architecture
 
@@ -108,8 +117,7 @@ Tous les matches renvoyés sont conservés, dans leur ordre de ranking. Aucun se
 
 ## Classes principales
 
-- `LangChainConfig` : producteurs CDI pour `EmbeddingModel`, `ChatLanguageModel` et `PgVectorEmbeddingStore` (table `embeddings`, créée si nécessaire).
-- `LangChainConstants` : configuration locale Ollama/pgvector.
+- `LangChainConfig` : producteurs CDI pour `EmbeddingModel`, `ChatLanguageModel` et `PgVectorEmbeddingStore`. Lit la configuration via `@ConfigProperty` (`rag.*`) et injecte la `DataSource` Quarkus, transmise à pgvector par `PgVectorEmbeddingStore.datasourceBuilder()` (table `embeddings`, créée si nécessaire). Une propriété manquante empêche le démarrage (comportement voulu).
 - `DocumentResource` : endpoints d'upload et de listing.
 - `AiResource` : endpoint de chat.
 - `DocumentFileService` : persistance du document, extraction, chunking, enrichissement, embedding et stockage.
