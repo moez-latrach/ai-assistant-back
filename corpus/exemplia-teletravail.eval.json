@@ -1,0 +1,133 @@
+{
+  "document": "exemplia-teletravail.docx",
+  "description": "Jeu de test du RAG sur la politique de télétravail fictive d'Exemplia. Réponses attendues issues uniquement du document.",
+  "keywordRule": "expectedKeywords est une liste de groupes : la réponse doit contenir au moins un mot de CHAQUE groupe (comparaison insensible à la casse).",
+  "cases": [
+    {
+      "id": "Q01", "category": "fait-simple",
+      "question": "Quel jour faut-il obligatoirement être présent sur site ?",
+      "expectedAnswer": "Le mercredi (journée d'équipe).",
+      "expectedKeywords": [["mercredi"]],
+      "expectedSections": ["2. Rythme"], "outOfScope": false
+    },
+    {
+      "id": "Q02", "category": "chiffre",
+      "question": "Combien de jours de télétravail par semaine sont autorisés ?",
+      "expectedAnswer": "Jusqu'à deux jours par semaine (un seul pour les alternants).",
+      "expectedKeywords": [["2", "deux"]],
+      "expectedSections": ["2. Rythme", "1. Éligibilité"], "outOfScope": false
+    },
+    {
+      "id": "Q03", "category": "chiffre",
+      "question": "Quel est le montant de l'indemnité de télétravail ?",
+      "expectedAnswer": "25 euros par mois, versés avec le salaire.",
+      "expectedKeywords": [["25"], ["mois"]],
+      "expectedSections": ["4. Équipement et indemnité"], "outOfScope": false
+    },
+    {
+      "id": "Q04", "category": "chiffre",
+      "question": "Combien de temps à l'avance dois-je faire ma demande de télétravail ?",
+      "expectedAnswer": "Au moins 10 jours ouvrés avant la date souhaitée.",
+      "expectedKeywords": [["10", "dix"], ["ouvrés"]],
+      "expectedSections": ["3. Demande et validation"], "outOfScope": false
+    },
+    {
+      "id": "Q05", "category": "regle-implicite",
+      "question": "Que se passe-t-il si mon manager ne répond pas à ma demande ?",
+      "expectedAnswer": "Sans réponse sous 5 jours ouvrés, la demande est considérée comme acceptée.",
+      "expectedKeywords": [["accept"], ["5", "cinq"]],
+      "expectedSections": ["3. Demande et validation"], "outOfScope": false
+    },
+    {
+      "id": "Q06", "category": "negation",
+      "question": "Les stagiaires peuvent-ils télétravailler ?",
+      "expectedAnswer": "Non, les stagiaires ne sont pas éligibles.",
+      "expectedKeywords": [["non", "pas éligible", "ne sont pas"]],
+      "expectedSections": ["1. Éligibilité"], "outOfScope": false
+    },
+    {
+      "id": "Q07", "category": "cas-particulier",
+      "question": "Combien de jours de télétravail un alternant peut-il faire ?",
+      "expectedAnswer": "Un seul jour par semaine.",
+      "expectedKeywords": [["1", "un seul", "un jour"]],
+      "expectedSections": ["1. Éligibilité"], "outOfScope": false
+    },
+    {
+      "id": "Q08", "category": "multi-informations",
+      "question": "Quel équipement est fourni, et qu'est-ce qui reste à ma charge ?",
+      "expectedAnswer": "Ordinateur portable et casque fournis ; le mobilier (bureau, chaise) reste à la charge du salarié.",
+      "expectedKeywords": [["ordinateur"], ["casque"], ["mobilier", "bureau", "chaise"]],
+      "expectedSections": ["4. Équipement et indemnité"], "outOfScope": false
+    },
+    {
+      "id": "Q09", "category": "reformulation",
+      "question": "Quand je travaille de chez moi, à quelles heures dois-je pouvoir être contacté ?",
+      "expectedAnswer": "Entre 9h30 et 16h30 (plage fixe).",
+      "expectedKeywords": [["9h30", "9 h 30"], ["16h30", "16 h 30"]],
+      "expectedSections": ["5. Horaires"], "outOfScope": false
+    },
+    {
+      "id": "Q10", "category": "reformulation",
+      "question": "Quel outil dois-je utiliser pour demander à travailler à distance ?",
+      "expectedAnswer": "L'outil interne MonEspace.",
+      "expectedKeywords": [["MonEspace"]],
+      "expectedSections": ["3. Demande et validation"], "outOfScope": false
+    },
+    {
+      "id": "Q11", "category": "premisse-fausse",
+      "question": "Puis-je télétravailler trois jours par semaine ?",
+      "expectedAnswer": "Non, le maximum est de deux jours par semaine.",
+      "expectedKeywords": [["2", "deux"]],
+      "expectedSections": ["2. Rythme"], "outOfScope": false
+    },
+    {
+      "id": "Q12", "category": "negation",
+      "question": "Puis-je reporter un jour de télétravail non utilisé à la semaine suivante ?",
+      "expectedAnswer": "Non, les jours non utilisés ne sont pas reportables.",
+      "expectedKeywords": [["non", "pas reportable", "ne sont pas"]],
+      "expectedSections": ["2. Rythme"], "outOfScope": false
+    },
+    {
+      "id": "Q13", "category": "regle-implicite",
+      "question": "Puis-je travailler sur un dossier confidentiel dans le train ?",
+      "expectedAnswer": "Non, c'est interdit depuis un lieu public.",
+      "expectedKeywords": [["non", "interdit"]],
+      "expectedSections": ["6. Sécurité"], "outOfScope": false
+    },
+    {
+      "id": "Q14", "category": "chiffre",
+      "question": "Quel est le préavis pour mettre fin au télétravail ?",
+      "expectedAnswer": "Un mois.",
+      "expectedKeywords": [["mois"]],
+      "expectedSections": ["7. Fin du télétravail"], "outOfScope": false
+    },
+    {
+      "id": "Q15", "category": "fait-simple",
+      "question": "Qui contacter pour une question sur le télétravail ?",
+      "expectedAnswer": "L'équipe RH : rh-teletravail@exemplia.example.",
+      "expectedKeywords": [["rh-teletravail@exemplia.example"]],
+      "expectedSections": ["7. Fin du télétravail"], "outOfScope": false
+    },
+    {
+      "id": "Q16", "category": "hors-document",
+      "question": "Quel est le montant des tickets restaurant ?",
+      "expectedAnswer": "Information absente : message NO_INFORMATION_FOUND.",
+      "expectedKeywords": [["aucune information"]],
+      "expectedSections": [], "outOfScope": true
+    },
+    {
+      "id": "Q17", "category": "hors-document",
+      "question": "Combien de jours de congés payés ai-je par an ?",
+      "expectedAnswer": "Information absente : message NO_INFORMATION_FOUND (sujet RH proche, risque d'invention).",
+      "expectedKeywords": [["aucune information"]],
+      "expectedSections": [], "outOfScope": true
+    },
+    {
+      "id": "Q18", "category": "hors-document",
+      "question": "Quelle est la capitale du Japon ?",
+      "expectedAnswer": "Information absente : message NO_INFORMATION_FOUND (le LLM ne doit pas utiliser ses connaissances générales).",
+      "expectedKeywords": [["aucune information"]],
+      "expectedSections": [], "outOfScope": true
+    }
+  ]
+}
