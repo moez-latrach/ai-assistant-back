@@ -2,7 +2,7 @@
 
 ## Objet du projet
 
-Ce repository contient le backend d'un assistant documentaire RAG (Retrieval-Augmented Generation). Il ingère des documents PDF ou DOCX, indexe leurs fragments dans PostgreSQL/pgvector, puis répond à une question à partir des fragments retrouvés et d'un LLM local servi par Ollama.
+Ce repository contient le backend d'un assistant documentaire RAG (Retrieval-Augmented Generation). Il ingère des documents PDF ou DOCX, indexe leurs fragments dans PostgreSQL/pgvector, puis répond à une question à partir des fragments retrouvés et d'un LLM : Mistral en local via Ollama (mode `local`, par défaut) ou Azure OpenAI (mode `azure`, documents de démonstration uniquement).
 
 Le projet est actuellement un RAG simple, synchrone et mono-tour. Il n'implémente pas encore les citations, le reranking, la recherche hybride, l'historique de conversation, l'authentification ni des agents capables d'exécuter des actions.
 
@@ -14,8 +14,9 @@ Le code courant est la source de vérité. La documentation sous `documentation/
 - Quarkus 3.35.2 : CDI/Arc, REST/Jackson, REST multipart, Hibernate ORM Panache, JDBC PostgreSQL et OpenAPI.
 - LangChain4j 0.36.2.
 - Ollama sur `http://localhost:11434` :
-  - embeddings : `nomic-embed-text` ;
-  - chat : `mistral`.
+  - embeddings : `nomic-embed-text` (utilisé dans **les deux modes**) ;
+  - chat : `mistral` (mode `local`).
+- Azure OpenAI via `langchain4j-azure-open-ai` 0.36.2 : chat uniquement, mode `azure` uniquement.
 - PostgreSQL 16 avec pgvector, exposé sur `localhost:5432` par `docker-compose.yml`.
 - Modèle d'embedding configuré sur 768 dimensions.
 - PDFBox 3.0.2 pour les PDF et Apache POI 5.4.0 pour les DOCX.
@@ -25,9 +26,38 @@ Toute la configuration est dans `application.properties` (plus aucune valeur de 
 - `quarkus.datasource.*` : connexion PostgreSQL. **Une seule datasource**, partagée par Hibernate (table `documents`) et par pgvector (table `embeddings`) ;
 - `rag.ollama.base-url`, `rag.ollama.embedding-model`, `rag.ollama.chat-model` : modèles Ollama ;
 - `rag.pgvector.table`, `rag.pgvector.dimension` : stockage vectoriel (la dimension doit correspondre au modèle d'embedding) ;
+- `rag.mode` (`local` / `azure`) et `rag.llm.provider` (`ollama` / `azure`) : mode affiché et fournisseur du LLM de chat ;
+- `rag.azure.endpoint`, `rag.azure.api-key`, `rag.azure.deployment` : lus **uniquement** depuis les variables d'environnement `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` ;
 - CORS et génération du schéma Hibernate.
 
 Les identifiants de développement PostgreSQL sont actuellement `userapp/password`, base `ragdb`. Ne pas les considérer comme une configuration de production.
+
+## Modes d'exécution et confidentialité
+
+Deux modes, sélectionnés par profil Quarkus au démarrage (pas de bascule à chaud) :
+
+| Mode | Lancement | LLM de chat | Base | Documents autorisés |
+|---|---|---|---|---|
+| `local` (défaut) | `./mvnw quarkus:dev` | Ollama / `mistral` | `ragdb` | tous, y compris confidentiels |
+| `azure` | `./mvnw quarkus:dev -Dquarkus.profile=azure` | Azure OpenAI | `ragdb_demo` | **fictifs ou publics uniquement** |
+
+- La base `ragdb_demo` est créée par `docker/init/01-create-demo-db.sql`, exécuté par PostgreSQL uniquement sur un volume vide (`docker compose down -v` puis `up -d` pour le rejouer — efface toutes les données).
+- Le profil `azure` ne change que `quarkus.datasource.jdbc.url`, `rag.mode` et `rag.llm.provider` ; grâce à la datasource unique, les deux tables basculent ensemble.
+- L'embedding reste `nomic-embed-text` en local dans les deux modes : un seul paramètre varie (le LLM), ce qui permet de comparer Mistral et Azure sur les mêmes chunks.
+- `StartupReport` affiche au démarrage le mode, l'URL de la base, le modèle de chat et l'embedding. La clé API n'est jamais affichée.
+
+Verrou de sécurité `LlmSafetyPolicy`, vérifié au démarrage par `StartupReport` (une exception arrête Quarkus) :
+
+- `ollama` est autorisé partout ;
+- `azure` n'est autorisé **que** sur les bases de la liste d'autorisation `AZURE_ALLOWED_DATABASES` (`ragdb_demo`), et seulement si endpoint, clé et déploiement sont tous définis ;
+- tout fournisseur inconnu est refusé.
+
+Règles à ne jamais enfreindre :
+
+- ne jamais ajouter `ragdb` (ou une base contenant des documents réels) à `AZURE_ALLOWED_DATABASES` ;
+- ne jamais déplacer cette liste dans `application.properties` : une règle de sécurité ne doit pas pouvoir être levée par un changement de configuration ;
+- ne jamais écrire de clé ou de secret dans le code, `application.properties`, un fichier `.env` ou la configuration IntelliJ du projet. La clé Azure est stockée dans le Trousseau macOS et exportée dans `~/.zshrc` (hors du projet) ;
+- ne jamais transformer la liste d'autorisation en liste d'interdiction : une nouvelle base ne doit jamais être autorisée par défaut.
 
 Règle importante : ne jamais redonner à pgvector ses propres paramètres de connexion (`host`, `database`, `user`…). Les deux tables doivent toujours passer par la même datasource ; sinon, un changement de base (par exemple via un profil Quarkus) ne s'appliquerait qu'à une seule des deux tables, sans erreur visible.
 
@@ -117,7 +147,9 @@ Tous les matches renvoyés sont conservés, dans leur ordre de ranking. Aucun se
 
 ## Classes principales
 
-- `LangChainConfig` : producteurs CDI pour `EmbeddingModel`, `ChatLanguageModel` et `PgVectorEmbeddingStore`. Lit la configuration via `@ConfigProperty` (`rag.*`) et injecte la `DataSource` Quarkus, transmise à pgvector par `PgVectorEmbeddingStore.datasourceBuilder()` (table `embeddings`, créée si nécessaire). Une propriété manquante empêche le démarrage (comportement voulu).
+- `LangChainConfig` : producteurs CDI pour `EmbeddingModel`, `ChatLanguageModel` (Ollama ou Azure OpenAI selon `rag.llm.provider` ; réglages Azure en `Optional<String>`, absents en mode local) et `PgVectorEmbeddingStore`. Lit la configuration via `@ConfigProperty` (`rag.*`) et injecte la `DataSource` Quarkus, transmise à pgvector par `PgVectorEmbeddingStore.datasourceBuilder()` (table `embeddings`, créée si nécessaire). Une propriété manquante empêche le démarrage (comportement voulu).
+- `LlmSafetyPolicy` : règle pure (fournisseur + URL JDBC + présence des identifiants → autorisé / refusé). Voir « Modes d'exécution et confidentialité ».
+- `StartupReport` : au `StartupEvent`, applique `LlmSafetyPolicy` puis affiche la configuration active.
 - `DocumentResource` : endpoints d'upload et de listing.
 - `AiResource` : endpoint de chat.
 - `DocumentFileService` : persistance du document, extraction, chunking, enrichissement, embedding et stockage.
@@ -172,7 +204,9 @@ Attention aux données sensibles : ces logs contiennent le texte intégral des d
 9. Ne pas modifier simultanément le Top K, le modèle d'embedding, le chunking et le prompt : le résultat deviendrait impossible à attribuer.
 10. Expliquer toute modification architecturale importante et mettre à jour cette documentation si l'état réel change.
 11. Ajouter ou adapter les tests pertinents, puis exécuter les tests existants après toute modification.
-12. Ne pas committer des fichiers locaux ou générés (`target/`, `.idea/`, `effective-pom.xml`, corpus de test) sans intention explicite.
+12. Ne pas committer des fichiers locaux ou générés (`target/`, `.idea/`, `effective-pom.xml`) sans intention explicite. Seul le dossier `corpus/` peut contenir des documents, et uniquement fictifs ou publics.
+13. Ne jamais placer ni lire de document réel ou confidentiel dans le projet ; les documents confidentiels restent hors du dépôt et ne sont utilisés qu'en mode `local`.
+14. Ne jamais affaiblir `LlmSafetyPolicy` ni contourner la séparation `ragdb` / `ragdb_demo` (voir « Modes d'exécution et confidentialité »).
 
 ## Conventions constatées
 
@@ -197,8 +231,11 @@ docker compose up -d
 ollama pull nomic-embed-text
 ollama pull mistral
 
-# Mode développement Quarkus
+# Mode développement Quarkus — mode local (Mistral, base ragdb)
 ./mvnw compile quarkus:dev
+
+# Mode azure (Azure OpenAI, base ragdb_demo) — nécessite AZURE_OPENAI_* dans l'environnement
+./mvnw quarkus:dev -Dquarkus.profile=azure
 
 # Tests (scénarios BDD Cucumber, sans Ollama ni PostgreSQL)
 ./mvnw test
@@ -214,15 +251,17 @@ java -jar target/quarkus-app/quarkus-run.jar
 ./mvnw package -Dnative
 ```
 
+Corpus de test : `corpus/` (documents fictifs ou publics uniquement, voir `corpus/README.md`). Jeu d'évaluation de référence : `corpus/exemplia-teletravail.eval.json` (18 questions, réponses attendues, mots-clés, sections, cas hors document). C'est la seule liste de référence : ne pas la recopier ailleurs.
+
 Pour une expérimentation Retrieval, noter le corpus, la question, les documents filtrés, les valeurs de chunking et de Top K, puis comparer les rangs/scores et le contexte exact. Ne conclure à un problème LLM qu'après avoir vérifié que l'information correcte est bien présente dans le contexte envoyé.
 
 ## Tests (BDD)
 
 Les tests sont des scénarios Gherkin exécutables avec Cucumber (dépendances `cucumber-java` et `cucumber-junit-platform-engine`, scope `test`, compatibles JUnit 6 fourni par Quarkus).
 
-- Scénarios : `src/test/resources/features/*.feature` (ex. `chat.feature`).
-- Step definitions : `src/test/java/org/acme/service/ChatSteps.java`.
-- Runner : `src/test/java/org/acme/service/RunCucumberTest.java` (glue `org.acme.service`, plugin `pretty`).
+- Scénarios : `src/test/resources/features/*.feature` — `chat.feature` (garde « aucun document », cas « aucun match ») et `security.feature` (règle `LlmSafetyPolicy`, 6 scénarios).
+- Step definitions : `src/test/java/org/acme/service/ChatSteps.java` et `src/test/java/org/acme/config/SecuritySteps.java` (chaque fichier de steps dans le package de la classe testée).
+- Runner : `src/test/java/org/acme/service/RunCucumberTest.java` (glue `org.acme`, donc toutes les steps du projet ; plugin `pretty`).
 
 Principes :
 
@@ -230,7 +269,8 @@ Principes :
 - Cucumber crée une nouvelle instance de `ChatSteps` par scénario : chaque scénario a ses propres mocks ; les données passent d'une étape à l'autre par les champs (`question`, `documentIds`, `answer`).
 - Scénarios rédigés en anglais, en vocabulaire métier (pas de noms de classes ni de mocks).
 - Un scénario décrit le comportement, pas le texte exact affiché : `Then the user is asked to select at least one document`, et c'est la step qui compare à la constante (`RagConstants.NO_DOCUMENT_SELECTED`).
-- Réutiliser les phrases existantes avant d'en créer de nouvelles ; une phrase nouvelle nécessite une méthode dans `ChatSteps`.
+- Réutiliser les phrases existantes avant d'en créer de nouvelles ; une phrase nouvelle nécessite une méthode dans un fichier de steps. Une même phrase ne doit être définie qu'une seule fois dans tout le glue `org.acme`.
+- Les règles de sécurité sont des fonctions pures testées sans mock (`SecuritySteps`).
 
 ## Roadmap
 
