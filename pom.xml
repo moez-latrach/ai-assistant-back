@@ -58,6 +58,12 @@
             <artifactId>langchain4j-ollama</artifactId>
             <version>0.36.2</version>
         </dependency>
+        <!-- Azure OpenAI : utilisé uniquement avec le profil "azure" (base ragdb_demo) -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-azure-open-ai</artifactId>
+            <version>0.36.2</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
