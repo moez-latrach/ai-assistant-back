@@ -11,3 +11,7 @@ services:
 
     ports:
       - "5432:5432"
+
+    # Scripts SQL exécutés à la première création de la base (crée ragdb_demo pour le profil azure)
+    volumes:
+      - ./docker/init:/docker-entrypoint-initdb.d:ro

@@ -9,6 +9,17 @@ public final class LogMessages {
 
     public static final String LIST_SEPARATOR = ", ";
 
+    /* DÉMARRAGE (StartupReport) */
+
+    public static final String STARTUP_CONFIG = """
+            =========================================
+            RAG MODE   : %s
+            DATABASE   : %s
+            CHAT MODEL : %s
+            EMBEDDING  : %s
+            =========================================
+            """;
+
     /* INGESTION (DocumentFileService) */
 
     public static final String CHUNK_COUNT = "Nombre de chunks : %d";
